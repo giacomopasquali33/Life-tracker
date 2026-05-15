@@ -374,7 +374,7 @@ async function loadRemote() {
     const [p, a, n] = await Promise.all([
       sb.from('pesi').select('*').order('date', {ascending:true}),
       sb.from('abitudini').select('*').order('date', {ascending:false}),
-      sb.from('note').select('*').order('date', {ascending:false}),
+      sb.from('note').select('*').order('created_at_full', {ascending:false}),
     ]);
     remotePesi = p.data || [];
     remoteAbitudini = {};
@@ -432,8 +432,9 @@ async function saveNote() {
   const text = document.getElementById('note-input').value.trim();
   if(!text) return;
   const date = todayKey();
+  const created_at_full = new Date().toISOString();
   document.getElementById('note-feedback').textContent = '⏳ Salvataggio...';
-  const {error} = await sb.from('note').upsert({date, text},{onConflict:'date'});
+  const {error} = await sb.from('note').insert({date, text, created_at_full});
   if(error) { document.getElementById('note-feedback').textContent='❌ Errore salvataggio'; return; }
   document.getElementById('note-feedback').textContent='✓ Nota salvata!';
   document.getElementById('note-input').value='';
@@ -606,11 +607,14 @@ function renderRemote() {
     </div>`).join('')||'<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:var(--muted)">Nessun dato ancora</div>';
 
   // NOTE
-  document.getElementById('note-list').innerHTML=remoteNote.map(n=>`
-    <div class="note-entry">
-      <div class="note-date">${formatDate(n.date)}</div>
+  document.getElementById('note-list').innerHTML=remoteNote.map(n=>{
+    const dt = n.created_at_full ? new Date(n.created_at_full) : null;
+    const timeStr = dt ? ` — ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}` : '';
+    return `<div class="note-entry">
+      <div class="note-date">${formatDate(n.date)}${timeStr}</div>
       <div class="note-text">${n.text.replace(/</g,'&lt;')}</div>
-    </div>`).join('')||'<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:var(--muted);padding:8px 0">Il tuo quaderno è ancora vuoto — scrivi la prima nota stasera!</div>';
+    </div>`;
+  }).join('')||'<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:var(--muted);padding:8px 0">Il tuo quaderno è ancora vuoto — scrivi la prima nota stasera!</div>';
 }
 
 // ── INIT ──────────────────────────────────────────────────────────────────
